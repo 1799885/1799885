@@ -1,0 +1,31 @@
+import { GameManager } from "./GameManager";
+import { Snowball } from "./Snowball";
+import { IceSkater } from "./IceSkater";
+
+export class Snowman {
+    private _gameManager: GameManager;
+    private _item: AnimatedItem;
+    private _player: IceSkater;
+    private _isBouncing: boolean = false;
+    private _isBusy: boolean = false;
+
+    constructor(item: AnimatedItem, gameManager: GameManager) {
+        this._item = item;
+        this._gameManager = gameManager;
+        this._player = this._gameManager.player;
+    }
+
+    public throw() {
+        if (this._isBusy) return;
+        this._isBusy = true;
+        this._item.transform.lookAt(this._player.item.transform.position);
+
+        this._item.transition.moveBy(new Vector3(0, 0, 0.25), 0.15, () => {
+            let snowBall = new Snowball(this._item.transform.position, this._player.item.transform.position);
+            snowBall.bindCollision(this._player.item, () => {
+                if (!this._gameManager.isGameOver) this._gameManager.player.hit();
+            });
+            this._item.transition.moveBy(new Vector3(0, 0, -0.25), 0.075, () => { this._isBusy = false; });
+        });
+    }
+}
