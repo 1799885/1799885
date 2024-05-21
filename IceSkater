@@ -1,0 +1,111 @@
+import { GameManager } from "./GameManager";
+
+export class IceSkater {
+    public item: AnimatedItem = Scene.getItem("IceSkaterWoman") as AnimatedItem;
+    private _gameManager: GameManager;
+    private _posMarker: Ellipsoid = Scene.getItem("PositionMarker") as Ellipsoid;
+    private _movementUpdate: Disposable;
+    private _animationUpdate: Disposable;
+    private _skatingSFX = Sound.load("r1/6BVhZ7I6jEK7aXVPfPSBTzsl7r3kj4mVKDMEB51JvBc");
+    private _initPositionSkater = (Scene.getItem("IceSkaterWoman") as AnimatedItem).transform.position;
+    private _initPositionMarker = (Scene.getItem("PositionMarker") as AnimatedItem).transform.position;
+    private _snowBallImpactSFX = Sound.load("r1/samJ7uxL10pCFvaQRoC7U7SFJ4qlrdsJTSddTrvCBX7");
+
+    constructor(gameManager: GameManager) {
+        this._gameManager = gameManager;
+        this.bindInteraction();
+        this.bindCollision();
+        RayCast.addToFilter(this.item);
+    }
+
+    public hit() {
+        if (this._movementUpdate !== undefined) {
+            this._movementUpdate.dispose();
+            this._animationUpdate.dispose();
+        };
+        this._snowBallImpactSFX.play();
+        this.item.speech = "Ouch!";
+        this.item.animation.play("Falling");
+        this.item.animation.speed = 2;
+        this.item.animation.onFinish(() => { this.item.animation.playLooping("Idle"); });
+        this._gameManager.endGame();
+        this._skatingSFX.stop();
+    }
+
+    public reset() {
+        this.bindMovementUpdate();
+        this.item.speech = "";
+        this.item.transform.position = new Vector3(this._initPositionSkater.x, this._initPositionSkater.y, this._initPositionSkater.z);
+        this._posMarker.transform.position = new Vector3(this._initPositionMarker.x, this._initPositionMarker.y, this._initPositionMarker.z);
+    }
+
+    private bindInteraction() {
+        let playArea = Scene.getItem("playArea") as Cuboid;
+        this._posMarker.input.onHover(() => { this._posMarker.speech = ""; })
+        this._posMarker.input.setItemDrag(playArea, () => {
+            this._posMarker.opacity = 1;
+            this._posMarker.transform.position = new Vector3(this._posMarker.transform.position.x, this._posMarker.transform.position.y, 2.5);
+        });
+    }
+
+    private bindMovementUpdate() {
+        let christmasTree = Scene.getItem("Christmas_Tree") as BaseItem;
+
+        this._movementUpdate = smoothFollow(this.item, this._posMarker, 2, 1);
+        this._animationUpdate = Time.scheduleRepeating(() => {
+            this.item.transform.position.dist(christmasTree.transform.position) < 4.5 ? christmasTree.opacity = 0.5 : christmasTree.opacity = 1;
+            this.updateAnimation();
+        }, 0);
+    }
+
+    private bindCollision() {
+        this.item.onCollisionEnter((collidingItem: BaseItem) => {
+            if (collidingItem.name && collidingItem.name !== null && (collidingItem.name.indexOf("Snowman") > -1 || collidingItem.name.indexOf("Christmas_Tree") > -1)) {
+                if (!this._gameManager.isGameOver) this.hit();
+            }
+        });
+    }
+
+    private updateAnimation() {
+        
+        if (this.item.transform.position.dist(this._posMarker.transform.position) < 4) {
+            if (this.item.animation.name !== "Idle") {
+                this.item.animation.speed = 1;
+                this.item.animation.playLooping("Idle");
+                this._skatingSFX.stop();
+                this._posMarker.opacity = 1;
+            }
+        } else {
+            if (this.item.animation.name !== "Fast Skating") {
+                this.item.animation.speed = 1;
+                this.item.animation.playLooping("Fast Skating");
+                this._skatingSFX.play(true);
+                this._posMarker.opacity = 0;
+            }
+        }
+    }
+}
+
+function smoothFollow(item: BaseItem, target: BaseItem, speed: number, stoppingDistance?: number): Disposable {
+    let vector3Lerp = (start: Vector3, end: Vector3, percent: number): Vector3 => start.add((end.sub(start).mult(percent)));
+    let lastTime = 0;
+    let delta = 0;
+
+    return Time.scheduleRepeating(() => {
+        delta = Time.currentTime - lastTime;
+        lastTime = Time.currentTime;
+        let targetVector = target.transform.position;
+        item.transform.lookAt(new Vector3(targetVector.x, targetVector.y, item.transform.position.z));
+        if (stoppingDistance) {
+            let offsetVector = item.transform.position.sub(target.transform.position).normalized.mult(stoppingDistance);
+            targetVector = targetVector.add(offsetVector);
+            targetVector = new Vector3(targetVector.x, targetVector.y, 0);
+            item.transform.position = vector3Lerp(item.transform.position, targetVector, speed * delta)
+        } else {
+            targetVector = new Vector3(targetVector.x, targetVector.y, 0);
+            item.transform.position = vector3Lerp(item.transform.position, targetVector, speed * delta)
+        }
+
+
+    }, 0);
+}
