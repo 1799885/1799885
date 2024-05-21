@@ -1,0 +1,75 @@
+import { GameManager } from "./GameManager";
+
+export class Star {
+    private _item: BaseItem = Scene.getItem("snowflakeTemplate").copy() as BaseItem;
+    private _gameManager: GameManager;
+    private _rotationUpdate: Disposable;
+    private _collectSFX = Sound.load("r1/6e93xmAKOgu7cAuSkUzPwPfoU0yNErF7l9zQoGxy61d");
+    private _isCollected = false;
+
+    constructor(gameManager: GameManager) {
+        this._gameManager = gameManager;
+        this.spawn();
+        this.bindUpdate();
+        this.bindCollision();
+    }
+
+    public onCollected(callback: () => void) {
+        let update = Time.scheduleRepeating(() => {
+            if (this._isCollected) {
+                if (callback) callback();
+                update.dispose();
+            }
+        }, 0);
+    }
+
+    public destroy() {
+        this._item.onCollisionEnter(null);
+        this._item.transition.moveBy(new Vector3(0, 0, 10), 3, () => {
+            this._item.delete();
+        });
+    }
+
+    private spawn() {
+        this._item.transform.position = new Vector3(this.randomSpawnPos.x, this.randomSpawnPos.y, -2);
+        this._item.transition.moveBy(new Vector3(0, 0, 2.25), 0.75);
+    };
+
+    private bindCollision() {
+        this._item.onCollisionEnter(collidingItem => {
+            if (collidingItem == this._gameManager.player.item) {
+                this._item.onCollisionEnter(null);
+                this.collected();
+            }
+        });
+    }
+
+    private collected() {
+        this._collectSFX.volume = 0.1;
+        this._collectSFX.play();
+        Time.schedule(() => this._collectSFX.dispose(), 0.2)
+        this._isCollected = true;
+        this._gameManager.increaseScore();
+        this._item.transition.moveBy(new Vector3(0, 0, 3), 0.5, () => {
+            this._rotationUpdate.dispose();
+            this._item.delete();
+        });
+    }
+
+    private bindUpdate() {
+        this._rotationUpdate = Time.scheduleRepeating(() => {
+            this._item.transform.rotateLocal(new Vector3(0, 0, 0), new Vector3(0, 0, 1), Math.PI * 0.05);
+        }, 0);
+    }
+
+    get randomSpawnPos(): Vector3 {
+        let a = Math.random() * (2 * Math.PI);
+        let cx = 0;
+        let cy = 0;
+
+        let xPos = cx + 5 * Math.cos(a);
+        let yPos = cy + 5 * Math.sin(a);
+
+        return new Vector3(xPos, yPos, -1);
+    }
+}
