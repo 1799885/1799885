@@ -1,0 +1,40 @@
+export class Snowball {
+    private _item: Ellipsoid;
+    private _origin: Vector3;
+    private _target: Vector3;
+    private _snowBallThrowSFX = Sound.load("r1/x2ORHI81dty7NtMvMwwAWK1zTjiLKe9v0LvLAqCCaO");
+    private _snowBallImpactSFX = Sound.load("r1/samJ7uxL10pCFvaQRoC7U7SFJ4qlrdsJTSddTrvCBX7");
+
+    constructor(origin: Vector3, target: Vector3) {
+        this._item = Scene.createEllipsoid(origin.x, origin.y, 1.5);
+        this._origin = origin;
+        this._target = target;
+        this.flyTo();
+    }
+
+    private flyTo() {
+        let velocityMod = 0.5;
+        let velocityUpMod = 3;
+        let pos = this._item.transform.position;
+        let posMarker = Scene.getItem("PositionMarker") as Ellipsoid;
+        let dir = this._target.sub(pos).mult(velocityMod);
+
+        this._item.physics.enabled = true;
+        this._item.physics.velocity = new Vector3(dir.x, dir.y, velocityUpMod);
+
+        this._snowBallThrowSFX.play();
+        Time.schedule(() => this._snowBallThrowSFX.dispose(), 0.2)
+    }
+
+    public bindCollision(targetItem: BaseItem, callback: () => void) {
+        this._item.onCollisionEnter((collidingItem: BaseItem) => {
+            if (collidingItem == targetItem) {
+                this._item.onCollisionEnter(null);
+                this._snowBallImpactSFX.play();
+                Time.schedule(() => this._snowBallImpactSFX.dispose(), 0.2)
+                if (callback) callback();
+                this._item.delete();
+            }
+        });
+    }
+}v
