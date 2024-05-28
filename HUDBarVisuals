@@ -1,0 +1,97 @@
+// Collision filters
+addAllChildrenToFilter(Scene.getItem("2qhWOn7M") as BaseItem); // Add all children of the camera & their children to collision filter.
+addAllChildrenToFilter(Scene.getItem("HUVet4a8") as Tube); // Add all children of the range indicator (includes Player Bounding box) to collsion filter.
+
+// Linear Interpolation function, returns 0 - 1 depending on what % 'a' makes of range 'x' to 'y'.
+const lerp = (x: number, y: number, a: number) => x * (1 - a) + y * a;
+
+// Recursive function to add all children of (and each of theirs) to the collision filter.
+function addAllChildrenToFilter(parent){
+    parent.children.toArray().forEach(child => {
+        Camera.addToCollisionFilter(child);
+        addAllChildrenToFilter(child);
+    });
+}
+
+Time.schedule(()=>{
+    // Waits until all variables are initiated, name of switch is set to true using coblocks in the InitiateBaseVariables function.
+    const typescriptSwitch = Scene.getItem("bLZEFQx6") as Cuboid;
+    while(typescriptSwitch.name != "true"){}
+
+    // Initialize Healthbar variables.
+    const healthBar = Scene.getItem("KPeUgxww") as Cuboid;
+    const healthTxt = Scene.getItem("NI9g5Ll1") as TextItem;
+    const maxHealth: number = +healthBar.name;
+    const maxHealthbarRange: number = healthBar.height;
+    var previousHealth = 0;
+    // Initialize Staminabar variables.
+    const staminaBar = Scene.getItem("LQwTeli0") as Cuboid;
+    const staminaTxt = Scene.getItem("MxPS9Gti") as TextItem;
+    const maxStamina: number = +staminaBar.name;
+    const maxStaminaBarRange: number = staminaBar.height;
+    const staminaBarMobile = Scene.getItem("rZujGWjt") as Tube;
+    var previousStamina = 0;
+    // Initialize Dashbar variables.
+    const dashBar = Scene.getItem("uYV1OhrA") as Cuboid;
+    const dashTxt = Scene.getItem("Q1AUUIYG") as TextItem;
+    const maxDashCooldown: number = +dashBar.name;
+    const maxDashBarRange: number = dashBar.height;
+    const dashBarMobile = Scene.getItem("yPi4Xe9d") as Tube;
+    const maxRadians = dashBarMobile.arc;
+    var previousDashCooldown = 0;
+
+    // Add all parts of the current weapon model to collision filter.
+    const weaponSlot = Scene.getItem("57LWoC82") as Cuboid;
+    addAllChildrenToFilter(weaponSlot);
+
+    
+    // Get & set range indicator and attack bounding box height.
+    const rangeIndicator = Scene.getItem("HUVet4a8") as Tube;
+    const attackBoundingBox = Scene.getItem("jWeVEQjZ") as Cuboid;
+    var currentRange: number = +rangeIndicator.name;
+    rangeIndicator.innerRadius = 0;
+    rangeIndicator.outerRadius = 0.1; //Reset radius, so that new outerRadius is never less than old innerRadius (which will give incorrect results)
+    rangeIndicator.outerRadius = currentRange+0.05;
+    rangeIndicator.innerRadius = currentRange;
+    attackBoundingBox.height = currentRange;
+
+    // Get device type the player is using.
+    const usingMobile = Scene.getItem("pKzLAZYr").name == "true";
+
+        // Update loop, runs forever and updates all of the HUD bars and places the player's range indicator & bounding box at their position.
+        Time.scheduleRepeating(()=>{
+            // Update Healthbar
+            var currentHealth: number = +healthTxt.name;
+            if(currentHealth != previousHealth){
+                previousHealth = currentHealth;
+                healthBar.height = lerp(0, maxHealthbarRange, currentHealth/maxHealth);
+            }
+            // Update Staminabar
+            var currentStamina: number = +staminaTxt.name;
+            if(currentStamina != previousStamina){
+                previousStamina = currentStamina;
+                if(usingMobile){
+                    staminaBarMobile.arc = lerp(0, maxRadians, currentStamina/maxStamina);
+                }
+                else {
+                    staminaBar.height = lerp(0, maxStaminaBarRange, currentStamina/maxStamina);
+                }
+            }
+            // Update Dash timer
+            var currentDashCooldown: number = +dashTxt.name;
+            if (currentDashCooldown != previousDashCooldown){
+                previousDashCooldown = currentDashCooldown;
+                if (usingMobile){
+                    dashBarMobile.arc = lerp(maxRadians, 0, currentDashCooldown/maxDashCooldown);
+                }
+                else {
+                    dashBar.height = lerp(maxDashBarRange, 0, currentDashCooldown/maxDashCooldown);
+                }
+            }
+        },0.03);
+        
+        // Update Range Indicator & Bounding box position, updated each frame.
+        Time.scheduleRepeating(()=>{
+            rangeIndicator.transform.position = new Vector3(Camera.transform.position.x,Camera.transform.position.y,0);
+        },);
+},0);
